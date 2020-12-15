@@ -43,7 +43,7 @@ class Dataset:
         self.load_images(scale, data_dir, image_filter)
 
         # only shuffle images, not level-2 patches within each image
-        if shuffle:
+        if shuffle == True:
             indices = np.random.permutation(len(self.rf2_patches))
             self.rf2_patches = self.rf2_patches[indices]
             self.labels = self.labels[indices]
@@ -155,7 +155,7 @@ class Dataset:
         strides = np.concatenate((layout_strides, patch_strides), axis=None)
 
         rf1_patches = np.lib.stride_tricks.as_strided(rf2_patch, shape=shape, strides=strides)
-        if self.use_mask:
+        if self.use_mask == True:
             rf1_patches * self.mask
 
         return rf1_patches
