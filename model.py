@@ -16,6 +16,9 @@ class Model:
         self.dataset = dataset
         self.iteration = 30
         
+        # Activation function
+        self.af = 'linear' # 'linear' or 'tanh'
+
         # Level 1 consists of multiple modules with 32 neurons in each moodule
         # Level-1 modules' receptive fields can be arranged into a 1D or 2D grid, with overlap between neighboring receptive fields
         self.level1_x = dataset.rf1_size[1]
@@ -49,17 +52,43 @@ class Model:
         self.alpha_u = 1e-3
         self.alpha_v = 1e-3
 
-    def __kalman_dW(self, r, e, alpha):
+    def __f(self, x):
+        """
+        Applies activation function.
+        """
+        if self.af == 'linear':
+            fx = x
+        elif self.af == 'tanh':
+            fx = np.tanh(x)
+        return fx
+
+    def __df(self, x):
+        """
+        Derivative of activation function.
+        """
+        if self.af == 'linear':
+            dfx = np.ones(x.shape)
+        elif self.af == 'tanh':
+            dfx = (1 - np.square(np.tanh(x)))
+        return dfx
+
+    def __kalman_dW(self, r0, r1, r10, alpha):
         """
         Kalman filter for weights.
 
-        r: node activation value vector
-        e: prediction error vector
+        Arguments:
+        r0: node activation to be predicted
+        r1: current node activation value vector
+        r10: predicted node activation
         alpha: learning rate
+
+        Vars:
+        e: prediction error vector
 
         Returns: weight change to be applied
         """
-        dW = alpha * np.outer(e, r)
+        e = self.__df(r10) * (r0 - r10)
+        dW = alpha * np.outer(e, r1)
         return dW
 
     def __kalman_dr(self, U1, r0, r11, r21, alpha, cross_entropy=False):
@@ -69,9 +98,11 @@ class Model:
         To update a given level (e.g. r1), we consider the bottom-up and top-down prediction error.
 
         Arguments:
-        r0: node activation of lower leve
+        U1: weights
+        r0: node activation of lower level
         r11: predicted activation of itself based on previous time step
         r21: activation of prediction of the current level based on the higher level
+        alpha: learning rate
 
         Vars:
         e10_bar: bottom-up prediction error
@@ -80,7 +111,7 @@ class Model:
 
         Returns: value change for node
         """
-        e10_bar = r0 - U1 @ r11
+        e10_bar = self.__df(U1 @ r11) * (r0 - self.__f(U1 @ r11))
         e21_bar = r11 - r21 if cross_entropy == False else (expit(r11)/np.sum(expit(r11))) - r21
         dr1 = alpha * (U1.T @ e10_bar) - alpha * e21_bar
         return dr1
@@ -144,6 +175,14 @@ class Model:
                 r22 = self.V2 @ r2
                 r33 = self.V3 @ r3
 
+                # apply activation function
+                r10 = self.__f(r10)
+                r21 = self.__f(r21)
+                r32 = self.__f(r32)
+                r11 = self.__f(r11)
+                r22 = self.__f(r22)
+                r33 = self.__f(r33)
+
                 # prediction errors
                 ## between-level
                 e10 = I_x - r10
@@ -157,20 +196,20 @@ class Model:
                 # calculate r updates
                 dr1 = np.array([self.__kalman_dr(U1_x[j,k], I_x[j,k], r11[j,k], r21[j,k], alpha = self.alpha_r) for j,k in np.ndindex(I.shape[:2])]).reshape(r1.shape)
                 dr2 = sum([self.__kalman_dr(self.U2[j,k], r1[j,k], r22, r32, alpha = self.alpha_r) for j,k in np.ndindex(I.shape[:2])])
-                dr3 = self.__kalman_dr(self.U3, r2, r33, r33, alpha = self.alpha_r, cross_entropy=False)
+                dr3 = self.__kalman_dr(self.U3, r2, r33, r33, alpha = self.alpha_r)
                 
                 # calculate U and V updates
                 if training:
                     r43 = L
                     dr3 = self.__kalman_dr(self.U3, r2, r33, r43, alpha = self.alpha_r, cross_entropy=True)
 
-                    dU1 = np.array([self.__kalman_dW(r1[j,k], e10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
-                    dU2 = np.array([self.__kalman_dW(r2, e21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
-                    dU3 = self.__kalman_dW(r3, e32, alpha = self.alpha_u)
+                    dU1 = np.array([self.__kalman_dW(I_x[j,k], r1[j,k], r10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
+                    dU2 = np.array([self.__kalman_dW(r1[j,k], r2, r21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
+                    dU3 = self.__kalman_dW(r2, r3, r32, alpha = self.alpha_u)
 
-                    dV1 = np.array([self.__kalman_dW(r1[j,k], e11[j,k], alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
-                    dV2 = self.__kalman_dW(r2, e22, alpha = self.alpha_v)
-                    dV3 = self.__kalman_dW(r3, e33, alpha = self.alpha_v)
+                    dV1 = np.array([self.__kalman_dW(r1[j,k], r1[j,k], r11[j,k], alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
+                    dV2 = self.__kalman_dW(r2, r2, r22, alpha = self.alpha_v)
+                    dV3 = self.__kalman_dW(r3, r3, r33, alpha = self.alpha_v)
 
                 # apply r updates
                 r1 = r11 + dr1

@@ -34,7 +34,8 @@ PARAMS = {'USE_MASK': [False],
           'ALPHA_V': [0.01],
           'ALPHA_DECAY': [1],
           'ALPHA_MIN': [0],
-          'TEST_INTERVAL': [100]}
+          'TEST_INTERVAL': [100],
+          'AF': ['linear']}
 
 # save parameter grid
 GRID = list(ParameterGrid(PARAMS))
