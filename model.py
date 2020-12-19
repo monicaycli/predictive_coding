@@ -146,6 +146,7 @@ class Model:
                    'e10': [],
                    'e21': [],
                    'e32': [],
+                   'e43': [],
                    'e11': [],
                    'e22': [],
                    'e33': []}
@@ -188,6 +189,7 @@ class Model:
                 e10 = I_x - r10
                 e21 = r1 - r21
                 e32 = r2 - r32
+                e43 = (expit(r3)/np.sum(expit(r3))) - L
                 ## within-level
                 e11 = r1 - r11
                 e22 = r2 - r22
@@ -200,8 +202,7 @@ class Model:
                 
                 # calculate U and V updates
                 if training:
-                    r43 = L
-                    dr3 = self.__kalman_dr(self.U3, r2, r33, r43, alpha = self.alpha_r, cross_entropy=True)
+                    dr3 = self.__kalman_dr(self.U3, r2, r33, L, alpha = self.alpha_r, cross_entropy=True)
 
                     dU1 = np.array([self.__kalman_dW(I_x[j,k], r1[j,k], r10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
                     dU2 = np.array([self.__kalman_dW(r1[j,k], r2, r21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
@@ -236,6 +237,7 @@ class Model:
                 outputs['e10'].append(e10.copy())
                 outputs['e21'].append(e21.copy())
                 outputs['e32'].append(e32.copy())
+                outputs['e43'].append(e43.copy())
                 outputs['e11'].append(e11.copy())
                 outputs['e22'].append(e22.copy())
                 outputs['e33'].append(e33.copy())
