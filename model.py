@@ -72,49 +72,46 @@ class Model:
             dfx = (1 - np.square(np.tanh(x)))
         return dfx
 
-    def __kalman_dW(self, r0, r1, r10, alpha):
+    def __dW(self, r1, df_r10, e10, alpha):
         """
-        Kalman filter for weights.
+        Weight (U or V) update.
 
         Arguments:
-        r0: node activation to be predicted
         r1: current node activation value vector
-        r10: predicted node activation
+        df_r10: predicted node activation
+        e10: prediction error
         alpha: learning rate
-
-        Vars:
-        e: prediction error vector
 
         Returns: weight change to be applied
         """
-        e = self.__df(r10) * (r0 - r10)
-        dW = alpha * np.outer(e, r1)
-        return dW
+        dW = np.outer(np.diag(df_r10) @ e10, r1)
+        dW_alpha = alpha * dW
+        return dW_alpha
 
-    def __kalman_dr(self, U1, r0, r11, r21, alpha, cross_entropy=False):
+    def __dr(self, U1, V1, df_r10, df_r11, e10, e11, e21, alpha, cross_entropy=False, training=False):
         """
-        Kalman filter for nodes.
+        Node (r) update.
 
         To update a given level (e.g. r1), we consider the bottom-up and top-down prediction error.
 
         Arguments:
-        U1: weights
-        r0: node activation of lower level
-        r11: predicted activation of itself based on previous time step
-        r21: activation of prediction of the current level based on the higher level
+        U1: top-down weights from current level to lower level
+        V1: recurrent weights of current level
+        df_r10: derivative of bottom-up prediction
+        df_r11: derivative of recurrent prediction
+        e10: bottom-up prediction error
+        e11: recurrent prediction error
+        e21: top-down prediction error
         alpha: learning rate
-
-        Vars:
-        e10_bar: bottom-up prediction error
-        e21_bar: top-down prediction error. Applies soft max function if `cross_entropy` is true. This only happens at
-            the classifier level during training.
 
         Returns: value change for node
         """
-        e10_bar = self.__df(U1 @ r11) * (r0 - self.__f(U1 @ r11))
-        e21_bar = r11 - r21 if cross_entropy == False else (expit(r11)/np.sum(expit(r11))) - r21
-        dr1 = alpha * (U1.T @ e10_bar) - alpha * e21_bar
-        return dr1
+        if cross_entropy == True and training == False:
+            dr1 = (U1.T @ np.diag(df_r10) @ e10) - ((1 - V1.T @ np.diag(df_r11)) @ e11)
+        else:
+            dr1 = (U1.T @ np.diag(df_r10) @ e10) - ((1 - V1.T @ np.diag(df_r11)) @ e11) - e21
+        dr1_alpha = alpha * dr1
+        return dr1_alpha
 
     def apply_input(self, inputs, labels, dataset, training):
         """
@@ -176,49 +173,61 @@ class Model:
                 r22 = self.V2 @ r2
                 r33 = self.V3 @ r3
 
-                # apply activation function
-                r10 = self.__f(r10)
-                r21 = self.__f(r21)
-                r32 = self.__f(r32)
-                r11 = self.__f(r11)
-                r22 = self.__f(r22)
-                r33 = self.__f(r33)
+                # apply activation function on predictions
+                ## between-level
+                f_r10 = self.__f(r10)
+                f_r21 = self.__f(r21)
+                f_r32 = self.__f(r32)
+                ## within-level
+                f_r11 = self.__f(r11)
+                f_r22 = self.__f(r22)
+                f_r33 = self.__f(r33)
+
+                # apply derivative of activation function on predictions
+                ## between-level
+                df_r10 = self.__df(r10)
+                df_r21 = self.__df(r21)
+                df_r32 = self.__df(r32)
+                ## within-level
+                df_r11 = self.__df(r11)
+                df_r22 = self.__df(r22)
+                df_r33 = self.__df(r33)
 
                 # prediction errors
                 ## between-level
-                e10 = I_x - r10
-                e21 = r1 - r21
-                e32 = r2 - r32
+                e10 = I_x - f_r10
+                e21 = r1 - f_r21
+                e32 = r2 - f_r32
                 e43 = (expit(r3)/np.sum(expit(r3))) - L
                 ## within-level
-                e11 = r1 - r11
-                e22 = r2 - r22
-                e33 = r3 - r33
+                e11 = r1 - f_r11
+                e22 = r2 - f_r22
+                e33 = r3 - f_r33
 
                 # calculate r updates
-                dr1 = np.array([self.__kalman_dr(U1_x[j,k], I_x[j,k], r11[j,k], r21[j,k], alpha = self.alpha_r) for j,k in np.ndindex(I.shape[:2])]).reshape(r1.shape)
-                dr2 = sum([self.__kalman_dr(self.U2[j,k], r1[j,k], r22, r32, alpha = self.alpha_r) for j,k in np.ndindex(I.shape[:2])])
-                dr3 = self.__kalman_dr(self.U3, r2, r33, r33, alpha = self.alpha_r)
+                dr1 = np.array([self.__dr(U1_x[j,k], self.V1[j,k], df_r10[j,k], df_r11[j,k], e10[j,k], e11[j,k], e21[j,k], alpha = self.alpha_r, \
+                                          cross_entropy = False, training = training) for j,k in np.ndindex(I.shape[:2])]).reshape(r1.shape)
+                dr2 = sum([self.__dr(self.U2[j,k], self.V2, df_r21[j,k], df_r22, e21[j,k], e22, e32, alpha = self.alpha_r, \
+                                     cross_entropy = False, training = training) for j,k in np.ndindex(I.shape[:2])])
+                dr3 = self.__dr(self.U3, self.V3, df_r32, df_r33, e32, e33, e43, alpha = self.alpha_r, cross_entropy = True, training = training)
                 
                 # calculate U and V updates
-                if training:
-                    dr3 = self.__kalman_dr(self.U3, r2, r33, L, alpha = self.alpha_r, cross_entropy=True)
+                if training == True:
+                    dU1 = np.array([self.__dW(r1[j,k], df_r10[j,k], e10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
+                    dU2 = np.array([self.__dW(r2, df_r21[j,k], e21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
+                    dU3 = self.__dW(r3, df_r32, e32, alpha = self.alpha_u)
 
-                    dU1 = np.array([self.__kalman_dW(I_x[j,k], r1[j,k], r10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
-                    dU2 = np.array([self.__kalman_dW(r1[j,k], r2, r21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
-                    dU3 = self.__kalman_dW(r2, r3, r32, alpha = self.alpha_u)
-
-                    dV1 = np.array([self.__kalman_dW(r1[j,k], r1[j,k], r11[j,k], alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
-                    dV2 = self.__kalman_dW(r2, r2, r22, alpha = self.alpha_v)
-                    dV3 = self.__kalman_dW(r3, r3, r33, alpha = self.alpha_v)
+                    dV1 = np.array([self.__dW(r1[j,k], df_r11[j,k], e11[j,k], alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
+                    dV2 = self.__dW(r2, df_r22, e22, alpha = self.alpha_v)
+                    dV3 = self.__dW(r3, df_r33, e33, alpha = self.alpha_v)
 
                 # apply r updates
-                r1 = r11 + dr1
-                r2 = r22 + dr2
-                r3 = r33 + dr3
+                r1 += dr1
+                r2 += dr2
+                r3 += dr3
 
                 # apply U and V updates
-                if training:
+                if training == True:
                     self.U1 += dU1
                     self.U2 += dU2
                     self.U3 += dU3
