@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import os
-from scipy.special import expit
 
 class Model:
     """
@@ -198,7 +197,7 @@ class Model:
                 e10 = I_x - f_r10
                 e21 = r1 - f_r21
                 e32 = r2 - f_r32
-                e43 = (expit(r3)/np.sum(expit(r3))) - L
+                e43 = (np.exp(r3)/np.sum(np.exp(r3))) - L
                 ## within-level
                 e11 = r1 - f_r11
                 e22 = r2 - f_r22
