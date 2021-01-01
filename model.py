@@ -201,7 +201,7 @@ class Model:
                 ## within-level
                 e11 = r1 - f_r11
                 e22 = r2 - f_r22
-                e33 = r3 - f_r33
+                e33 = (np.exp(r3)/np.sum(np.exp(r3))) - f_r33
 
                 # calculate r updates
                 dr1 = np.array([self.__dr(U1_x[j,k], self.V1[j,k], df_r10[j,k], df_r11[j,k], e10[j,k], e11[j,k], e21[j,k], alpha = self.alpha_r, \
