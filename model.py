@@ -51,6 +51,15 @@ class Model:
         self.alpha_u = 1e-3
         self.alpha_v = 1e-3
 
+        # Noise Variances (Sigma Sqaures)
+        self.s10 = 1
+        self.s21 = 1
+        self.s32 = 1
+        self.s43 = 1
+        self.s11 = 1
+        self.s22 = 1
+        self.s33 = 1
+
     def __f(self, x):
         """
         Applies activation function.
@@ -71,7 +80,7 @@ class Model:
             dfx = (1 - np.square(np.tanh(x)))
         return dfx
 
-    def __dW(self, r1, df_r10, e10, alpha):
+    def __dW(self, r1, df_r10, e10, s10, alpha):
         """
         Weight (U or V) update.
 
@@ -80,14 +89,15 @@ class Model:
         df_r10: predicted node activation
         e10: prediction error
         alpha: learning rate
+        s10: noise variance of e10
 
         Returns: weight change to be applied
         """
-        dW = np.outer(np.diag(df_r10) @ e10, r1)
+        dW = np.outer((1/s10) * np.diag(df_r10) @ e10, r1)
         dW_alpha = alpha * dW
         return dW_alpha
 
-    def __dr(self, U1, V1, df_r10, df_r11, e10, e11, e21, alpha, cross_entropy=False, training=False):
+    def __dr(self, U1, V1, df_r10, df_r11, e10, e11, e21, s10, s11, s21, alpha, cross_entropy=False, training=False):
         """
         Node (r) update.
 
@@ -101,14 +111,17 @@ class Model:
         e10: bottom-up prediction error
         e11: recurrent prediction error
         e21: top-down prediction error
+        s10: noise variance of e10
+        s11: noise variance of e11
+        s21: noise variance of e21
         alpha: learning rate
 
         Returns: value change for node
         """
         if cross_entropy == True and training == False:
-            dr1 = (U1.T @ np.diag(df_r10) @ e10) - ((1 - V1.T @ np.diag(df_r11)) @ e11)
+            dr1 = ((1/s10) * U1.T @ np.diag(df_r10) @ e10) - ((1/s11) * (1 - V1.T @ np.diag(df_r11)) @ e11)
         else:
-            dr1 = (U1.T @ np.diag(df_r10) @ e10) - ((1 - V1.T @ np.diag(df_r11)) @ e11) - e21
+            dr1 = ((1/s10) * U1.T @ np.diag(df_r10) @ e10) - ((1/s11) * (1 - V1.T @ np.diag(df_r11)) @ e11) - ((1/s21) * e21)
         dr1_alpha = alpha * dr1
         return dr1_alpha
 
@@ -204,21 +217,24 @@ class Model:
                 e33 = (np.exp(r3)/np.sum(np.exp(r3))) - f_r33
 
                 # calculate r updates
-                dr1 = np.array([self.__dr(U1_x[j,k], self.V1[j,k], df_r10[j,k], df_r11[j,k], e10[j,k], e11[j,k], e21[j,k], alpha = self.alpha_r, \
+                dr1 = np.array([self.__dr(U1_x[j,k], self.V1[j,k], df_r10[j,k], df_r11[j,k], e10[j,k], e11[j,k], e21[j,k], \
+                                          self.s10, self.s11, self.s21, alpha = self.alpha_r, \
                                           cross_entropy = False, training = training) for j,k in np.ndindex(I.shape[:2])]).reshape(r1.shape)
-                dr2 = sum([self.__dr(self.U2[j,k], self.V2, df_r21[j,k], df_r22, e21[j,k], e22, e32, alpha = self.alpha_r, \
+                dr2 = sum([self.__dr(self.U2[j,k], self.V2, df_r21[j,k], df_r22, e21[j,k], e22, e32, \
+                                     self.s21, self.s22, self.s32, alpha = self.alpha_r, \
                                      cross_entropy = False, training = training) for j,k in np.ndindex(I.shape[:2])])
-                dr3 = self.__dr(self.U3, self.V3, df_r32, df_r33, e32, e33, e43, alpha = self.alpha_r, cross_entropy = True, training = training)
+                dr3 = self.__dr(self.U3, self.V3, df_r32, df_r33, e32, e33, e43, \
+                                self.s32, self.s33, self.s43, alpha = self.alpha_r, cross_entropy = True, training = training)
                 
                 # calculate U and V updates
                 if training == True:
-                    dU1 = np.array([self.__dW(r1[j,k], df_r10[j,k], e10[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
-                    dU2 = np.array([self.__dW(r2, df_r21[j,k], e21[j,k], alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
-                    dU3 = self.__dW(r3, df_r32, e32, alpha = self.alpha_u)
+                    dU1 = np.array([self.__dW(r1[j,k], df_r10[j,k], e10[j,k], self.s10, alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U1.shape)
+                    dU2 = np.array([self.__dW(r2, df_r21[j,k], e21[j,k], self.s21, alpha = self.alpha_u) for j,k in np.ndindex(I.shape[:2])]).reshape(self.U2.shape)
+                    dU3 = self.__dW(r3, df_r32, e32, self.s32, alpha = self.alpha_u)
 
-                    dV1 = np.array([self.__dW(r1[j,k], df_r11[j,k], e11[j,k], alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
-                    dV2 = self.__dW(r2, df_r22, e22, alpha = self.alpha_v)
-                    dV3 = self.__dW(r3, df_r33, e33, alpha = self.alpha_v)
+                    dV1 = np.array([self.__dW(r1[j,k], df_r11[j,k], e11[j,k], self.s11, alpha = self.alpha_v) for j,k in np.ndindex(I.shape[:2])]).reshape(self.V1.shape)
+                    dV2 = self.__dW(r2, df_r22, e22, self.s22, alpha = self.alpha_v)
+                    dV3 = self.__dW(r3, df_r33, e33, self.s33, alpha = self.alpha_v)
 
                 # apply r updates
                 r1 += dr1
