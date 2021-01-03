@@ -165,6 +165,14 @@ class Model:
         r1 = np.zeros((self.level1_layout_y, self.level1_layout_x, self.level1_module_size)).astype(self.dtype)
         r2 = np.zeros(self.level2_module_size).astype(self.dtype)
         r3 = np.zeros(self.level3_module_size).astype(self.dtype)
+
+        # within predictions (based on previous time step before input is revealed)
+        r1_pre = np.zeros((self.level1_layout_y, self.level1_layout_x, self.level1_module_size)).astype(self.dtype)
+        r2_pre = np.zeros(self.level2_module_size).astype(self.dtype)
+        r3_pre = np.zeros(self.level3_module_size).astype(self.dtype)
+        r11 = np.matmul(self.V1, np.expand_dims(r1_pre, axis=-1)).reshape(r1_pre.shape)
+        r22 = self.V2 @ r2_pre
+        r33 = self.V3 @ r3_pre
     
         for idx in np.ndindex(inputs.shape[:2]):
             I = dataset.get_rf1_patches_from_rf2_patch(inputs[idx])
@@ -180,10 +188,6 @@ class Model:
                 r10 = np.matmul(U1_x, np.expand_dims(r1, axis=-1)).reshape(I_x.shape)
                 r21 = np.matmul(self.U2, np.expand_dims(r2, axis=-1)).reshape(r1.shape)
                 r32 = self.U3 @ r3
-                ## within-level
-                r11 = np.matmul(self.V1, np.expand_dims(r1, axis=-1)).reshape(r1.shape)
-                r22 = self.V2 @ r2
-                r33 = self.V3 @ r3
 
                 # apply activation function on predictions
                 ## between-level
@@ -215,6 +219,12 @@ class Model:
                 e11 = r1 - f_r11
                 e22 = r2 - f_r22
                 e33 = r3 - f_r33
+
+                # predictions
+                ## within-level (for next time step)
+                r11 = np.matmul(self.V1, np.expand_dims(r1, axis=-1)).reshape(r1.shape)
+                r22 = self.V2 @ r2
+                r33 = self.V3 @ r3
 
                 # calculate r updates
                 dr1 = np.array([self.__dr(U1_x[j,k], self.V1[j,k], df_r10[j,k], df_r11[j,k], e10[j,k], e11[j,k], e21[j,k], \
