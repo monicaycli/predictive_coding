@@ -60,6 +60,13 @@ class Model:
         self.s22 = 1
         self.s33 = 1
 
+    def softmax(self, x):
+        """
+        Stable softmax to prevent overflow.
+        """
+        exps = np.exp(x - np.max(x))
+        return exps / np.sum(exps)
+    
     def __f(self, x):
         """
         Applies activation function.
@@ -214,7 +221,7 @@ class Model:
                 e10 = I_x - f_r10
                 e21 = r1 - f_r21
                 e32 = r2 - f_r32
-                e43 = (np.exp(r3)/np.sum(np.exp(r3))) - L
+                e43 = self.softmax(r3) - L
                 ## within-level
                 e11 = r1 - f_r11
                 e22 = r2 - f_r22
