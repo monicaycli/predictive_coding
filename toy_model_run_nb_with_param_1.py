@@ -15,7 +15,7 @@ print(param)
 OUT_PATH = '{}_{}.ipynb'.format(os.path.splitext(PKL_PATH)[0], os.path.splitext(IPYNB_FILENAME)[0])
 
 nb = nbformat.read(IPYNB_FILENAME, as_version=4)
-nb['cells'].insert(1, nbformat.v4.new_code_cell('param = {}'.format(str(param.to_dict()))))
+nb['cells'].insert(2, nbformat.v4.new_code_cell('param = {}'.format(str(param.to_dict()))))
 ep = ExecutePreprocessor(timeout=None)
 ep.preprocess(nb, {'metadata': {'path': CWD}})
 
