@@ -13,8 +13,8 @@ if not os.path.exists(RESULTS_DIR):
     os.system('mkdir -p {}'.format(RESULTS_DIR))
 
 PARAMS = {'act_func': ['linear', 'tanh'],
-          'epoch_n': [5000],
-          'save_interval': [500],
+          'epoch_n': [1000],
+          'save_interval': [50],
           'r1_size': [100],
           's10': [10],
           's11': [1],
@@ -22,13 +22,17 @@ PARAMS = {'act_func': ['linear', 'tanh'],
           's22': [1],
           's32': [5],
           'alpha_1': [0.1],
-          'alpha_2': [5],
+          'alpha_2': [10],
           'beta_1': [0.1],
           'beta_2': [0.1],
           'beta_3': [0.1],
           'beta_f': [0.1],
           'gamma_1': [0.01],
-          'gamma_2': [0.01]}
+          'gamma_2': [0.01],
+          'softmax_c': [1],
+          'recog_mode': [1],
+          'recog_value': [1],
+          'in_dir': ['./data/3x3']}
 
 # save parameter grid
 GRID = list(ParameterGrid(PARAMS))
