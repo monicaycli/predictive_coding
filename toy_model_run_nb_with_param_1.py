@@ -6,15 +6,13 @@ from nbconvert.preprocessors import ExecutePreprocessor
 
 CWD = os.path.abspath('.')
 
-IPYNB_FILENAME = sys.argv[1]
-PKL_PATH = sys.argv[2]
+PKL_PATH = sys.argv[1]
+OUT_PATH = os.path.splitext(PKL_PATH)[0] + '.ipynb'
 
 param = pd.read_pickle(PKL_PATH)
 print(param)
 
-OUT_PATH = '{}_{}.ipynb'.format(os.path.splitext(PKL_PATH)[0], os.path.splitext(IPYNB_FILENAME)[0])
-
-nb = nbformat.read(IPYNB_FILENAME, as_version=4)
+nb = nbformat.read(param.ipynb, as_version=4)
 nb['cells'].insert(2, nbformat.v4.new_code_cell('param = {}'.format(str(param.to_dict()))))
 ep = ExecutePreprocessor(timeout=None)
 ep.preprocess(nb, {'metadata': {'path': CWD}})
