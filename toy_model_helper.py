@@ -29,22 +29,29 @@ def f_prime(x, af="linear"):
         dfx = np.diag(1 - np.square(np.tanh(x)))
     return dfx
 
-def raw_vs_softmax_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, c=1, sharex=False, sharey=False, cmap=None):
+def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nlines_max=10, c=1, sharex=False, sharey=False, cmap=None):
+    df_groupby = df.groupby(groupby)
+    group_keys = list(df_groupby.groups.keys())
+    
+    ncols = 2
+    nrows = nrows if nrows <= len(group_keys) else len(group_keys)
+    
     subplot_y, subplot_x = tuple(i * scale for i in (subplot_yx))
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(subplot_x*ncols, subplot_y*nrows), sharex=sharex, sharey=sharey)
     
-    df_groupby = df.groupby(groupby)
-    group_keys = df_groupby.groups.keys()
-    
-    for k in group_keys:
-        k_idx = list(group_keys).index(k)
+    for k in group_keys[:nrows]:
+        k_idx = group_keys.index(k)
 
         raw_r = df_groupby.get_group(k).apply(lambda x: pd.Series(x[value]), axis=1).reset_index(drop=True)
         softmaxd_r = df_groupby.get_group(k).apply(lambda x: pd.Series(softmax(x[value], c=c)), axis=1).reset_index(drop=True)
 
         raw_r.columns = group_keys
         softmaxd_r.columns = group_keys
+        
+        if len(group_keys) > nlines_max:
+            raw_r = raw_r.filter(items=raw_r.tail(1).squeeze().sort_values(ascending=False).head(nlines_max).index)
+            softmaxd_r = softmaxd_r.filter(items=softmaxd_r.tail(1).squeeze().sort_values(ascending=False).head(nlines_max).index)
 
         raw_plot = raw_r.plot(ax=axes[k_idx, 0], title="{}: raw activations".format(k), cmap=cmap);
         softmaxd_plot = softmaxd_r.plot(ax=axes[k_idx, 1], title="{}: softmax'd activations".format(k), cmap=cmap);
@@ -53,9 +60,10 @@ def raw_vs_softmax_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, c=
         softmaxd_plot.legend(loc="lower left");
         
         # thicken target line
-        for i, l1, l2 in zip(range(len(group_keys)), raw_plot.lines, softmaxd_plot.lines):
-            if i == k_idx:
+        for i, j, l1, l2 in zip(raw_r.columns, softmaxd_r.columns, raw_plot.lines, softmaxd_plot.lines):
+            if i == k:
                 plt.setp(l1, linewidth=3)
+            if j == k:
                 plt.setp(l2, linewidth=3)
 
     plt.tight_layout();
@@ -119,6 +127,21 @@ def recog(L, mode=1, value=1):
         recog_node = max_nodes.head(1) if len(max_nodes) > 0 else np.nan
 
     return recog_node
+
+def category_given_target(target, word):
+
+    if target == word:
+        category = 'target'
+    elif target[0:1] == word[:1]:
+        category = 'cohort'
+    elif target[1:] == word[1:]:
+        category = 'rhyme'
+    elif word in target:
+        category = 'embedded'
+    else:
+        category = 'other'
+
+    return category
 
 class Model:
     def __init__(self, I_size, r1_size, r2_size, L_size, seed=None):
