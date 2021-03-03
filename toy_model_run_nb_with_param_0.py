@@ -13,9 +13,9 @@ RESULTS_DIR = os.path.join(CWD, 'results', GIT_COMMIT_HASH)
 if not os.path.exists(RESULTS_DIR):
     os.system('mkdir -p {}'.format(RESULTS_DIR))
 
-PARAMS = {'act_func': ['linear', 'tanh'],
-          'epoch_n': [10],
-          'save_interval': [5],
+PARAMS = {'act_func': ['linear'],
+          'epoch_n': [500],
+          'save_interval': [50],
           'r1_size': [100],
           's10': [10],
           's11': [1],
@@ -30,16 +30,15 @@ PARAMS = {'act_func': ['linear', 'tanh'],
           'beta_f': [0.1],
           'gamma_1': [0.01],
           'gamma_2': [0.01],
-          'softmax_c': [1],
+          'softmax_c': [20],
           'recog_mode': [1],
           'recog_value': [1],
-          'in_dir': ['./data/3x3'],
+          'in_dir': ['./data/3x3_long'],
           'out_dir': [RESULTS_DIR],
           'timestamp': [TIMESTAMP],
-          'ipynb': ['toy_model_kalman_variant_4.ipynb',
-                    'toy_model_kalman_variant_3a.ipynb',
-                    'toy_model_kalman_variant_2a.ipynb',
-                    'toy_model_kalman_variant_1.ipynb']}
+          'ipynb': ['toy_model_kalman_variant_4.ipynb'],
+          'weight_init_seed': [1],
+          'timecourse_sharey': [True]}
 
 # save parameter grid
 GRID = list(ParameterGrid(PARAMS))

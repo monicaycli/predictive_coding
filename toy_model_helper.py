@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from itertools import groupby
+import os
 
 def softmax(x, c=1):
     x = np.array(x)
@@ -118,3 +119,137 @@ def recog(L, mode=1, value=1):
         recog_node = max_nodes.head(1) if len(max_nodes) > 0 else np.nan
 
     return recog_node
+
+class Model:
+    def __init__(self, I_size, r1_size, r2_size, L_size, seed=None):
+        self.I_size = I_size
+        self.r1_size = r1_size
+        self.r2_size = r2_size
+        self.L_size = L_size
+        
+        np.random.seed(seed)
+        self.U1 = np.random.normal(loc=0, scale=0.1, size=(I_size, r1_size))
+        self.U2 = np.random.normal(loc=0, scale=0.1, size=(r1_size, r2_size))
+        self.V1 = np.random.normal(loc=0, scale=0.1, size=(r1_size, r1_size))
+        self.V2 = np.random.normal(loc=0, scale=0.1, size=(r2_size, r2_size))
+        
+        self.s10 = 1
+        self.s11 = 1
+        self.s21 = 1
+        self.s22 = 1
+        self.s32 = 1
+        
+        self.alpha_1 = 1
+        self.alpha_2 = 1
+        self.beta_1 = 1
+        self.beta_2 = 1
+        self.gamma_1 = 1
+        self.gamma_2 = 1
+        
+    def apply_input(self, label, I, L, training=False, af="linear"):
+        output = {"training": [], "label": [], "I": [], "L": [], "timestep": [],
+                  "r1_bar": [], "r2_bar": [], "r2_bar_x": [],
+                  "r1_hat": [], "r2_hat": [], "r2_hat_x": []}
+        
+        s10 = self.s10
+        s11 = self.s11
+        s21 = self.s21
+        s22 = self.s22
+        s32 = self.s32
+        
+        alpha_1 = self.alpha_1
+        alpha_2 = self.alpha_2
+        beta_1 = self.beta_1
+        beta_2 = self.beta_2
+        gamma_1 = self.gamma_1
+        gamma_2 = self.gamma_2
+        
+        r1_hat = np.zeros(self.r1_size)
+        r2_hat = np.zeros(self.r2_size)
+        r2_hat_x = np.zeros(self.r2_size)
+        
+        U1_hat = self.U1.copy()
+        U2_hat = self.U2.copy()
+        
+        V1_hat = self.V1.copy()
+        V2_hat = self.V2.copy()
+
+        for idx in np.arange(I.shape[1]):
+            r1_hat_old = r1_hat.copy()
+            r2_hat_old = r2_hat.copy()
+            r2_hat_x_old = r2_hat_x.copy()
+
+            U1_bar = U1_hat.copy()
+            U2_bar = U2_hat.copy()
+
+            V1_bar = V1_hat.copy()
+            V2_bar = V2_hat.copy()
+            
+            r1_bar = f(V1_bar @ r1_hat_old, af=af)
+            r2_bar = f(V2_bar @ r2_hat_old, af=af)
+            r2_bar_x = f(V2_bar @ r2_hat_x_old, af=af)
+
+            r1_hat = r1_bar + alpha_1/s10 * U1_bar.T @ f_prime(U1_bar @ r1_bar, af=af) @ (I[:, idx] - f(U1_bar @ r1_bar, af=af)) - alpha_1/s21 * (r1_bar - f(U2_bar @ r2_bar, af=af))
+            r2_hat = r2_bar + alpha_2/s21 * U2_bar.T @ f_prime(U2_bar @ r2_bar, af=af) @ (r1_bar - f(U2_bar @ r2_bar, af=af))
+            r2_hat_x = r2_hat - 1/2 * alpha_2/s32 * (softmax(r2_bar) - L)
+
+            if training == True:
+                U1_hat = U1_bar + beta_1/s10 * f_prime(U1_bar @ r1_hat, af=af) @ np.outer(I[:, idx] - f(U1_bar @ r1_hat, af=af), r1_hat)
+                U2_hat = U2_bar + beta_2/s21 * f_prime(U2_bar @ r2_hat_x, af=af) @ np.outer(r1_bar - f(U2_bar @ r2_hat_x, af=af), r2_hat_x)
+
+                V1_hat = V1_bar + gamma_1/s11 * f_prime(V1_bar @ r1_hat_old, af=af) @ np.outer(r1_hat - f(V1_bar @ r1_hat_old, af=af), r1_hat_old)
+                V2_hat = V2_bar + gamma_2/s22 * f_prime(V2_bar @ r2_hat_x_old, af=af) @ np.outer(r2_hat_x - f(V2_bar @ r2_hat_x_old, af=af), r2_hat_x_old)
+            
+            output["training"].append(training)
+            output["label"].append(label)
+            output["I"].append(I[:, idx])
+            output["L"].append(L)
+            output["timestep"].append(idx)
+
+            output["r1_bar"].append(r1_bar.copy())
+            output["r2_bar"].append(r2_bar.copy())
+            output["r2_bar_x"].append(r2_bar_x.copy())
+            
+            output["r1_hat"].append(r1_hat.copy())
+            output["r2_hat"].append(r2_hat.copy())
+            output["r2_hat_x"].append(r2_hat_x.copy())
+            
+        self.U1 = U1_hat.copy()
+        self.U2 = U2_hat.copy()
+        
+        self.V1 = V1_hat.copy()
+        self.V2 = V2_hat.copy()
+        
+        output_df = pd.DataFrame.from_dict(output)
+        return output_df
+    
+    def save(self, dir_name):
+        """
+        Saves all weights to disk.
+        """
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        file_path = os.path.join(dir_name, "model") 
+
+        np.savez_compressed(file_path,
+                            U1=self.U1,
+                            U2=self.U2,
+                            V1=self.V1,
+                            V2=self.V2)
+        print("saved: {}".format(dir_name))
+
+    def load(self, dir_name):
+        """
+        Load previously saved weights from disk.
+        """
+        file_path = os.path.join(dir_name, "model.npz")
+        if not os.path.exists(file_path):
+            print("saved file not found")
+            return
+        
+        data = np.load(file_path)
+        self.U1 = data["U1"]
+        self.U2 = data["U2"]
+        self.V1 = data["V1"]
+        self.V2 = data["V2"]
+        print("loaded: {}".format(dir_name))
