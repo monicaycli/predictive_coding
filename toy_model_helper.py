@@ -29,7 +29,7 @@ def f_prime(x, af="linear"):
         dfx = np.diag(1 - np.square(np.tanh(x)))
     return dfx
 
-def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nlines_max=10, c=1, sharex=False, sharey=False, cmap=None):
+def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nodes, nlines_max=10, c=1, sharex=False, sharey=False, cmap=None):
     df_groupby = df.groupby(groupby)
     group_keys = list(df_groupby.groups.keys())
     
@@ -46,10 +46,10 @@ def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nlines_ma
         raw_r = df_groupby.get_group(k).apply(lambda x: pd.Series(x[value]), axis=1).reset_index(drop=True)
         softmaxd_r = df_groupby.get_group(k).apply(lambda x: pd.Series(softmax(x[value], c=c)), axis=1).reset_index(drop=True)
 
-        raw_r.columns = group_keys
-        softmaxd_r.columns = group_keys
+        raw_r.columns = nodes
+        softmaxd_r.columns = nodes
         
-        if len(group_keys) > nlines_max:
+        if len(nodes) > nlines_max:
             raw_r = raw_r.filter(items=raw_r.tail(1).squeeze().sort_values(ascending=False).head(nlines_max).index)
             softmaxd_r = softmaxd_r.filter(items=softmaxd_r.tail(1).squeeze().sort_values(ascending=False).head(nlines_max).index)
 
