@@ -76,8 +76,9 @@ def recon_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, sharex=True
     df_groupby = df.groupby(groupby)
     group_keys = df_groupby.groups.keys()
     
-    vmin = df.apply(lambda x: pd.Series(x[value]), axis=1).values.min()
-    vmax = df.apply(lambda x: pd.Series(x[value]), axis=1).values.max()
+    abs_max = df.apply(lambda x: np.abs(pd.Series(x[value])), axis=1).values.max()
+    vmin = -abs_max
+    vmax = abs_max
     
     for k, ax in zip(group_keys, axes.flatten()):
         vall = df_groupby.get_group(k).apply(lambda x: pd.Series(x[value]), axis=1).values.T
