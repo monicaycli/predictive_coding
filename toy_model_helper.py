@@ -30,6 +30,12 @@ def f_prime(x, af="linear"):
     return dfx
 
 def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nodes, nlines_max=10, c=1, sharex=False, sharey=False, cmap=None):
+    if cmap == None:
+        if nlines_max > 10:
+            cmap="tab20"
+        elif nlines_max > 20:
+            cmap="turbo"
+
     df_groupby = df.groupby(groupby)
     group_keys = list(df_groupby.groups.keys())
     
@@ -130,13 +136,13 @@ def recog(L, mode=1, value=1):
 
     return recog_node
 
-def category_given_target(target, word):
+def category_given_target(target, word, cohort_len=1, rhyme_len=1):
 
     if target == word:
         category = 'target'
-    elif target[0:1] == word[:1]:
+    elif target[:cohort_len] == word[:cohort_len]:
         category = 'cohort'
-    elif target[1:] == word[1:]:
+    elif target[-rhyme_len:] == word[-rhyme_len:]:
         category = 'rhyme'
     elif word in target:
         category = 'embedded'

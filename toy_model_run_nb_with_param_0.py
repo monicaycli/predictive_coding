@@ -26,8 +26,6 @@ PARAMS = {'act_func': ['linear'],
           'alpha_2': [10],
           'beta_1': [0.1],
           'beta_2': [0.1],
-          'beta_3': [0.1],
-          'beta_f': [0.1],
           'gamma_1': [0.01],
           'gamma_2': [0.01],
           'softmax_c': [20],
@@ -38,7 +36,10 @@ PARAMS = {'act_func': ['linear'],
           'timestamp': [TIMESTAMP],
           'ipynb': ['toy_model_kalman_variant_4.ipynb'],
           'weight_init_seed': [1],
-          'timecourse_sharey': [True]}
+          'timecourse_sharey': [True],
+          'nlines_max': [16],
+          'cohort_len': [1],
+          'rhyme_len': [1]}
 
 # save parameter grid
 GRID = list(ParameterGrid(PARAMS))
