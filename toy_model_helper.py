@@ -68,7 +68,7 @@ def raw_vs_softmax_plots(df, nrows, subplot_yx, scale, groupby, value, nodes, nl
 
     plt.tight_layout();
     
-def recon_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, sharex=True, sharey=True, cmap="gray", y_label_list=None):
+def recon_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, vmin=None, vmax=None, sharex=True, sharey=True, cmap="gray", y_label_list=None):
     subplot_y, subplot_x = tuple(i * scale for i in (subplot_yx))
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(subplot_x*ncols, subplot_y*nrows), sharex=sharex, sharey=sharey)
@@ -76,9 +76,10 @@ def recon_plots(df, ncols, nrows, subplot_yx, scale, groupby, value, sharex=True
     df_groupby = df.groupby(groupby)
     group_keys = df_groupby.groups.keys()
     
-    abs_max = df.apply(lambda x: np.abs(pd.Series(x[value])), axis=1).values.max()
-    vmin = -abs_max
-    vmax = abs_max
+    if vmax == None:
+        vmax = df.apply(lambda x: np.abs(pd.Series(x[value])), axis=1).values.max()
+    if vmin == None:
+        vmin = -vmax
     
     for k, ax in zip(group_keys, axes.flatten()):
         vall = df_groupby.get_group(k).apply(lambda x: pd.Series(x[value]), axis=1).values.T
