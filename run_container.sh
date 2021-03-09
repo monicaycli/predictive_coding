@@ -3,9 +3,9 @@
 #SBATCH --mail-user=monica.li@uconn.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks=8
-#SBATCH --exclude=cn[66-69,71-136,153-256,265-320,325-328]
-#SBATCH -e error_%A.log
-#SBATCH -o output_%A.log
+#SBATCH --exclude=cn[66-69,71-136,153-256,265-320,325-328,406]
+#SBATCH -e results/error_%A.log
+#SBATCH -o results/output_%A.log
 #SBATCH --job-name=PCSWR
 ##### END OF JOB DEFINITION  #####
 export OMP_NUM_THREADS=$SLURM_JOB_CPUS_PER_NODE

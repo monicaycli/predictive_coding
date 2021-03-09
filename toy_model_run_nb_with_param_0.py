@@ -53,7 +53,7 @@ GRID_DF['param_id'] = GRID_DF_KEEP.apply(lambda x: hashlib.sha1(x.to_json().enco
 
 for i in GRID_DF.index:
     PARAM_ID = GRID_DF.param_id[i]
-    PKL_FILE = '{}_{}_{}.pkl'.format(TIMESTAMP, PARAM_ID, re.sub("\.ipynb$", "", GRID_DF.ipynb[i]))
+    PKL_FILE = '{}_{:03d}_{}_{}.pkl'.format(TIMESTAMP, i, PARAM_ID, re.sub("\.ipynb$", "", GRID_DF.ipynb[i]))
     PKL_PATH = os.path.join(RESULTS_DIR, PKL_FILE)
     GRID_DF.loc[i].to_pickle(PKL_PATH)
     print(PKL_PATH)
