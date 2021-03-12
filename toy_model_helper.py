@@ -177,7 +177,7 @@ class Model:
         self.gamma_1 = 1
         self.gamma_2 = 1
         
-    def apply_input(self, label, I, L, training=False, af="linear"):
+    def apply_input(self, label, I, L, training=False, af="linear", r2_priming=None):
         output = {"training": [], "label": [], "I": [], "L": [], "timestep": [],
                   "r1_bar": [], "r2_bar": [], "r2_bar_x": [],
                   "r1_hat": [], "r2_hat": [], "r2_hat_x": []}
@@ -196,8 +196,13 @@ class Model:
         gamma_2 = self.gamma_2
         
         r1_hat = np.zeros(self.r1_size)
-        r2_hat = np.zeros(self.r2_size)
-        r2_hat_x = np.zeros(self.r2_size)
+
+        if r2_priming == None:
+            r2_hat = np.zeros(self.r2_size)
+            r2_hat_x = np.zeros(self.r2_size)
+        else:
+            r2_hat = np.array(r2_priming)
+            r2_hat_x = np.array(r2_priming)
         
         U1_hat = self.U1.copy()
         U2_hat = self.U2.copy()
