@@ -108,19 +108,19 @@ def argmax_1(x):
     argmax_x = np.argmax(max_marks) if np.sum(max_marks) == 1 else np.nan
     return argmax_x
 
-def recog(L, mode=1, value=1):
+def recog(L, mode=1, value=0):
     '''
     Operationalize word recognition. Input L should be a vector of raw or transformed activation values.
     
     Modes:
-    1. Most activated one at the last one time step (or a specific number of time steps).
+    1. Most activated one at the last time step above a specified value.
     2. Select the node that first reaches and stays at the maximum for a certain number of time steps
     3. Absolute threshold at specified value.
     '''
     if mode == 1:
-        value = 1
-        L_argmax = L.apply(lambda x: argmax_1(x))
-        recog_node = L_argmax.tail(value)
+        L_argmax = L.apply(argmax_1)
+        L_max = L.apply(np.max)
+        recog_node = L_argmax.tail(1) if L_max.tail(1).squeeze() >= value else np.nan
     elif mode == 2:
         L_argmax = L.apply(lambda x: argmax_1(x))
         X = np.array([[k, sum(1 for i in g)] for k, g in groupby(L_argmax)])
